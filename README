@@ -1,0 +1,23 @@
+Corsair AXi Series PSU Monitor
+Copyright (C) 2014 Andras Kovacs - andras@sth.sze.hu
+
+1. Compiling
+- Make sure that libc6-dev, gcc, etc are installed.
+- Run compile.sh
+
+2. Using
+- Compile modified cp210x driver from cp210x directory (tested under Ubuntu 14.04/Kernel 3.13.0)
+    make
+- run as root these commands (from cp210x directory after make)
+    modprobe usbserial
+    insmod cp210x.ko
+- Find out usb serial device name from dmesg (usually /dev/ttyUSB0)
+- run ./cpsumon /dev/ttyUSB0
+
+TODO
+Only Corsair Link Dongle supported, so no Corsair Link Commander, etc.
+Fan speed setting OCP enable/disable not implemented yet.
+Corsair Link Commander is not supported.
+
+Have fun,
+Andras Kovacs

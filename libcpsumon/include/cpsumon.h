@@ -70,11 +70,10 @@ typedef struct psu_main_power_t {
     float efficiency;
 } psu_main_power_t;
 
-static int _psu_type;
-static rail_12v_t _rail12v;
-static rail_misc_t _railmisc;
-static psu_main_power_t _psumain;
-
+extern int _psu_type;
+extern rail_12v_t _rail12v;
+extern rail_misc_t _railmisc;
+extern psu_main_power_t _psumain;
 
 unsigned char encode_table[16]  =
 			 {0x55, 0x56, 0x59, 0x5a, 0x65, 0x66, 0x69, 0x6a, 0x95, 0x96, 0x99, 0x9a, 0xa5, 0xa6, 0xa9, 0xaa};

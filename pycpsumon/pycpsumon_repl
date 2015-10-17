@@ -1,0 +1,10 @@
+#!/usr/bin/python3.4
+
+from IPython import embed
+from ctypes import *
+
+#os.environ['LD_LIBRARY_PATH'] = "../libcpsumon
+pycpsumon = CDLL("../libcpsumon/libcpsumon.so")
+
+embed()
+

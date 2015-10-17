@@ -1,101 +1,16 @@
-/*
-Corsair AXi Series PSU Monitor
-Copyright (C) 2014 Andras Kovacs - andras@sth.sze.hu
+#include <cpsumon.h>
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+int open_usb(char *device)
+{
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+    int fd = open(device, O_RDWR | O_NONBLOCK);
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
-*/
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <math.h>
-
-#define TYPE_AX760  0
-#define TYPE_AX860  1
-#define TYPE_AX1200 2
-#define TYPE_AX1500 3
-
-#define true  1
-#define false 0
-
-typedef struct rail_12v_elem_t {
-    float voltage;
-    float current;
-    float power;
-    unsigned char ocp_enabled;
-    float ocp_limit;
-} rail_12v_elem_t;
-
-typedef struct rail_misc_elem_t {
-    float voltage;
-    float current;
-    float power;
-} rail_misc_elem_t;
-
-typedef struct rail_12v_t {
-    rail_12v_elem_t pcie[10];
-    rail_12v_elem_t atx;
-    rail_12v_elem_t peripheral;
-} rail_12v_t;
-
-
-typedef struct rail_misc_t {
-    rail_misc_elem_t rail_5v;
-    rail_misc_elem_t rail_3_3v;
-} rail_misc_t;
-
-typedef struct psu_main_power_t {
-    float voltage;
-    float current;
-    float inputpower;
-    float outputpower;
-    char cabletype;
-    float efficiency;
-} psu_main_power_t;
-
-static int _psu_type;
-static rail_12v_t _rail12v;
-static rail_misc_t _railmisc;
-static psu_main_power_t _psumain;
-
-
-unsigned char encode_table[16]  =
-			 {0x55, 0x56, 0x59, 0x5a, 0x65, 0x66, 0x69, 0x6a, 0x95, 0x96, 0x99, 0x9a, 0xa5, 0xa6, 0xa9, 0xaa};
-unsigned char decode_table[256] =
-			 {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
-			  0x20, 0x21, 0x00, 0x12, 0x22, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x14, 0x24,
-			  0x25, 0x00, 0x16, 0x26, 0x27, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x28, 0x29, 0x00, 0x1a,
-			  0x2a, 0x2b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x2c, 0x2d, 0x00, 0x1e, 0x2e,
-			  0x2f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-			  0x00
-			};
+    if (fd < 0) {
+        printf("Serial port (%s) open error.\n", device);
+        return -1;
+    }
+    return fd;
+}
 
 int xread(int f, void * b, int s, int timeout) {
     int r, ss=s;
@@ -596,80 +511,5 @@ int setup_dongle(int fd) {
 
     printf("PSU type: %s\n", dump_psu_type(_psu_type));
 
-    return 0;
-}
-
-
-int main (int argc, char * argv[]) {
-    int fd;
-    struct termios tio;
-    int i;
-
-    _psu_type = TYPE_AX760;
-
-    printf("Corsair AXi Series PSU Monitor\n");
-    printf("(c) 2014 Andras Kovacs - andras@sth.sze.hu\n");
-    printf("-------------------------------------------\n\n");
-
-    if (argc < 2) {
-	printf("usage: %s <serial port device>\n", argv[0]);
-	return 0;
-    }
-
-    fd = open(argv[1], O_RDWR | O_NONBLOCK);
-
-    if (fd < 0) {
-        printf("Serial port (%s) open error.\n", argv[1]);
-        return -1;
-    }
-
-    memset(&tio, 0, sizeof(tio));
-    tio.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
-    tio.c_iflag = IGNPAR;
-    tio.c_oflag = 0;
-    tio.c_lflag = 0;
-    tio.c_cc[VTIME]= 0;
-    tio.c_cc[VMIN] = 1;
-    tcsetattr(fd, TCSANOW, &tio);
-    tcflush(fd, TCIOFLUSH);
-
-    float f;
-
-    if (setup_dongle(fd) == -1) exit(-1);
-    if (read_psu_fan_speed(fd, &f) == -1) exit(-1);
-    printf("Fan speed: %0.2f RPM\n", f);
-    if (read_psu_temp(fd, &f) == -1) exit(-1);
-    printf("Temperature: %0.2f °C\n", f);
-
-    if (read_psu_main_power(fd) == -1) exit(-1);
-
-    printf("Voltage: %0.2f V\n", _psumain.voltage);
-    printf("Current: %0.2f A\n", _psumain.current);
-    printf("Input power: %0.2f W\n", _psumain.inputpower);
-    printf("Output power: %0.2f W\n", _psumain.outputpower);
-    if (_psu_type == TYPE_AX1500)
-	    printf("Cable type: %s\n", (_psumain.cabletype ? "20 A" : "15 A"));
-    printf("Efficiency: %0.2f %%\n", _psumain.efficiency);
-
-    if (read_psu_rail12v(fd) == -1) exit(-1);
-
-    int chnnum = (_psu_type == TYPE_AX1500 ? 10 : ((_psu_type == TYPE_AX1200) ? 8 : 6));
-    for (i = 0; i < chnnum; i++) {
-	printf("PCIe %02d Rail:    %0.2f V, %0.2f A, %0.2f W, OCP %s (Limit: %0.2f A)\n", i, _rail12v.pcie[i].voltage,
-	_rail12v.pcie[i].current, _rail12v.pcie[i].power, (_rail12v.pcie[i].ocp_enabled ? "enabled " : "disabled"), _rail12v.pcie[i].ocp_limit);
-    }
-
-    printf("ATX Rail:        %0.2f V, %0.2f A, %0.2f W, OCP %s (Limit: %0.2f A)\n", _rail12v.atx.voltage,
-	_rail12v.atx.current, _rail12v.atx.power, (_rail12v.atx.ocp_enabled ? "enabled " : "disabled"), _rail12v.atx.ocp_limit);
-
-    printf("Peripheral Rail: %0.2f V, %0.2f A, %0.2f W, OCP %s (Limit: %0.2f A)\n", _rail12v.peripheral.voltage,
-	_rail12v.peripheral.current, _rail12v.peripheral.power, (_rail12v.peripheral.ocp_enabled ? "enabled " : "disabled"), _rail12v.peripheral.ocp_limit);
-
-    if(read_psu_railmisc(fd) == -1) exit(-1);
-
-    printf("5V Rail:         %0.2f V, %0.2f A, %0.2f W\n", _railmisc.rail_5v.voltage, _railmisc.rail_5v.current, _railmisc.rail_5v.power);
-    printf("3.3V Rail:       %0.2f V, %0.2f A, %0.2f W\n", _railmisc.rail_3_3v.voltage, _railmisc.rail_3_3v.current, _railmisc.rail_3_3v.power);
-
-    close(fd);
     return 0;
 }

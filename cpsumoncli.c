@@ -43,7 +43,7 @@ int main (int argc, char * argv[]) {
       printf("Fan mode: Fixed\n");
 
       if (read_psu_fan_fixed_percent(fd, &i) == -1) exit(-1);
-      printf("Fan seting: %d %%\n", i);
+      printf("Fan setting: %d %%\n", i);
     }
 
     if (read_psu_fan_speed(fd, &f) == -1) exit(-1);

@@ -453,6 +453,37 @@ int read_psu_railmisc(int fd) {
     return 0;
 }
 
+int set_psu_fan_fixed_percent(int fd, float f) {
+    char percent = f;
+    unsigned char * ret = write_data_psu(fd, 0x3b, &percent, 1);
+    if (!ret) return -1;
+    return 0;
+}
+
+int read_psu_fan_fixed_percent(int fd, int * i) {
+    unsigned char * ret = read_data_psu(fd, 0x3b, 1);
+    if (!ret) return -1;
+    *i = (unsigned char)*ret;
+    free(ret);
+    return 0;
+}
+
+int set_psu_fan_mode(int fd, int m) {
+    char mode = m;
+    unsigned char * ret = write_data_psu(fd, 0xf0, &mode, 1);
+    if (!ret) return -1;
+    free(ret);
+    return 0;
+}
+
+int read_psu_fan_mode(int fd, int * m) {
+    unsigned char * ret = read_data_psu(fd, 0xf0, 1);
+    if (!ret) return -1;
+    *m = (unsigned char)*ret;
+    free(ret);
+    return 0;
+}
+
 int read_psu_fan_speed(int fd, float * f) {
     unsigned char * ret = read_data_psu(fd, 0x90, 2);
     if (!ret) return -1;

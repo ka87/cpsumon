@@ -36,6 +36,16 @@ int main (int argc, char * argv[]) {
     float f;
 
     if (setup_dongle(fd) == -1) exit(-1);
+
+    if (read_psu_fan_mode(fd, &i) == -1) exit(-1);
+    if (i == FANMODE_AUTO) printf("Fan mode: Auto\n");
+    else if (i == FANMODE_FIXED) {
+      printf("Fan mode: Fixed\n");
+
+      if (read_psu_fan_fixed_percent(fd, &i) == -1) exit(-1);
+      printf("Fan setting: %d %%\n", i);
+    }
+
     if (read_psu_fan_speed(fd, &f) == -1) exit(-1);
     printf("Fan speed: %0.2f RPM\n", f);
     if (read_psu_temp(fd, &f) == -1) exit(-1);

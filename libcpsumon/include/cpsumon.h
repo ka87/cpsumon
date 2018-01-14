@@ -32,6 +32,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define TYPE_AX1200 2
 #define TYPE_AX1500 3
 
+#define FANMODE_AUTO 0
+#define FANMODE_FIXED 1
+
 #define true  1
 #define false 0
 
@@ -117,5 +120,9 @@ int read_psu_rail12v(int fd);
 int read_psu_railmisc(int fd);
 int read_psu_fan_speed(int fd, float * f);
 int read_psu_temp(int fd, float * f);
+int read_psu_fan_fixed_percent(int fd, int * i);
+int set_psu_fan_fixed_percent(int fd, float f);
+int read_psu_fan_mode(int fd, int * m);
+int set_psu_fan_mode(int fd, int m);
 char * dump_psu_type(int type);
 int setup_dongle(int fd);
